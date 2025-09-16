@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LanguageDirection {
+  LTR
+  RTL
+}
+
+enum Theme {
+  LIGHT
+  DARK
+}
+
+enum SidebarType {
+  FLOATING
+  INSET
+  SIDEBAR
+}
+
+enum SidebarState {
+  ICON
+  CLOSED
+  FULL
+}
+
+enum Scaled {
+  SHARP
+  ROUNDED
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  publicId    String    @unique @default(cuid())
+  username    String?   @unique
+  email       String?   @unique
+  phoneNumber String?   @unique
+  password    String?
+  isVerified  Boolean   @default(false)
+  roles       Role[]    @relation("UserRoles")
+  createdAt   DateTime  @default(now())
+
+  profile     Profile?
+  files       File[]
+  preferences UserPreference[]
+
+  @@index([email])
+  @@index([phoneNumber])
+}
+
+model Profile {
+  id        Int    @id @default(autoincrement())
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int    @unique
+  fullName  String?
+  avatarUrl String?
+  bio       String?
+}
+
+model Role {
+  id          Int       @id @default(autoincrement())
+  publicId    String    @unique @default(cuid())
+  name        String    @unique
+  key         String    @unique
+  users       User[]    @relation("UserRoles")
+  permissions RolePermission[]
+}
+
+model Permission {
+  id       Int      @id @default(autoincrement())
+  publicId String   @unique @default(cuid())
+  resource String
+  action   String
+  roles    RolePermission[]
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model Language {
+  id         Int       @id @default(autoincrement())
+  publicId   String    @unique @default(cuid())
+  code       String    @unique
+  direction  LanguageDirection
+  fontClass  String?
+  contents   Content[]
+  userPrefs  UserPreference[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Page {
+  id        Int       @id @default(autoincrement())
+  publicId  String    @unique @default(cuid())
+  key       String    @unique
+  sections  Section[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Section {
+  id        Int       @id @default(autoincrement())
+  publicId  String    @unique @default(cuid())
+  key       String
+  page      Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  pageId    Int
+  contents  Content[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([pageId, key])
+}
+
+model Content {
+  id         Int       @id @default(autoincrement())
+  publicId   String    @unique @default(cuid())
+  type       String    
+  language   Language  @relation(fields: [languageId], references: [id])
+  languageId Int
+  value      String?   
+  key        String?
+  section    Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId  Int
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([sectionId, key, languageId])
+  @@index([languageId])
+}
+
+model Folder {
+  id        Int      @id @default(autoincrement())
+  publicId  String   @unique @default(cuid())
+  name      String
+  parentId  Int?    
+  parent    Folder?  @relation("Subfolders", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[] @relation("Subfolders")
+  files     File[]   @relation("FolderFiles")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model File {
+  id         Int       @id @default(autoincrement())
+  publicId   String    @unique @default(cuid())
+  name       String
+  type       String
+  url        String
+  size       Int?
+  category   String?
+
+  folderId   Int?
+  folder     Folder?   @relation("FolderFiles", fields: [folderId], references: [id], onDelete: SetNull)
+
+  uploadedBy User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId     Int?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([folderId])
+}
+
+model UserPreference {
+  id          Int       @id @default(autoincrement())
+  publicId    String    @unique @default(cuid())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  theme       Theme
+  fontSize    Int?
+  sidebarType SidebarType?
+  sidebarState SidebarState?
+  defaultOpen Boolean?
+  language    Language  @relation(fields: [languageId], references: [id])
+  languageId  Int
+  scaled      Scaled?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([languageId])
+}
